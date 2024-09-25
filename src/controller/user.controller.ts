@@ -1,37 +1,20 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  HttpStatus,
-  Param,
-  Post,
-  UploadedFiles,
-  Put,
-  Req,
-  Res,
-} from '@nestjs/common';
-import { User } from '../model/user.schema';
+import { Body, Controller, Post, Res, HttpStatus } from '@nestjs/common';
 import { UserService } from '../service/user.service';
-import { JwtService } from '@nestjs/jwt';
+import { CreateUserDto } from '../dto/create-user.dto';
 
 @Controller('/api/v1/user')
 export class UserController {
-  constructor(
-    private readonly userServerice: UserService,
-    private jwtService: JwtService,
-  ) {}
+  constructor(private readonly userService: UserService) {}
 
   @Post('/signup')
-  async Signup(@Res() response, @Body() user: User) {
-    const newUSer = await this.userServerice.signup(user);
-    return response.status(HttpStatus.CREATED).json({
-      newUSer,
-    });
+  async signup(@Res() response, @Body() createUserDto: CreateUserDto) {
+    const newUser = await this.userService.signup(createUserDto);
+    return response.status(HttpStatus.CREATED).json(newUser);
   }
+
   @Post('/signin')
-  async SignIn(@Res() response, @Body() user: User) {
-    const token = await this.userServerice.signin(user, this.jwtService);
+  async signin(@Res() response, @Body() createUserDto: CreateUserDto) {
+    const token = await this.userService.signin(createUserDto);
     return response.status(HttpStatus.OK).json(token);
   }
 }

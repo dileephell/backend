@@ -4,47 +4,43 @@ import { Model } from 'mongoose';
 import { User, UserDocument } from '../model/user.schema';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
+import { CreateUserDto } from '../dto/create-user.dto';
 
 @Injectable()
 export class UserService {
-  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
+  constructor(
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
+    private jwtService: JwtService,
+  ) {}
 
-  async signup(user: User): Promise<User> {
+  async signup(createUserDto: CreateUserDto): Promise<User> {
     const salt = await bcrypt.genSalt();
-    const hash = await bcrypt.hash(user.password, salt);
-    const reqBody = {
-      fullname: user.fullname,
-      email: user.email,
+    const hash = await bcrypt.hash(createUserDto.password, salt);
+    const newUser = new this.userModel({
+      ...createUserDto,
       password: hash,
-    };
-    const newUser = new this.userModel(reqBody);
+    });
     return newUser.save();
   }
 
-  async signin(user: User, jwt: JwtService): Promise<any> {
-    const foundUser = await this.userModel
-      .findOne({ email: user.email })
-      .exec();
-    if (foundUser) {
-      const { password } = foundUser;
-      if (bcrypt.compare(user.password, password)) {
-        const payload = { email: user.email };
-        return {
-          token: jwt.sign(payload),
-        };
-      }
-      return new HttpException(
-        'Incorrect username or password',
-        HttpStatus.UNAUTHORIZED,
-      );
+  async signin(createUserDto: CreateUserDto): Promise<any> {
+    const foundUser = await this.userModel.findOne({ email: createUserDto.email }).exec();
+    if (!foundUser) {
+      throw new HttpException('Incorrect username or password', HttpStatus.UNAUTHORIZED);
     }
-    return new HttpException(
-      'Incorrect username or password',
-      HttpStatus.UNAUTHORIZED,
-    );
+
+    const isPasswordValid = await bcrypt.compare(createUserDto.password, foundUser.password);
+    if (!isPasswordValid) {
+      throw new HttpException('Incorrect username or password', HttpStatus.UNAUTHORIZED);
+    }
+
+    const payload = { email: createUserDto.email };
+    return {
+      token: this.jwtService.sign(payload),
+    };
   }
 
-  async getOne(email): Promise<User> {
+  async getOne(email: string): Promise<User> {
     return await this.userModel.findOne({ email }).exec();
   }
 }
